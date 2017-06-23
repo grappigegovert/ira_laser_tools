@@ -96,9 +96,9 @@ LaserscanMerger::LaserscanMerger()
 	nh.getParam("destination_frame", destination_frame);
 	nh.getParam("cloud_destination_topic", cloud_destination_topic);
 	nh.getParam("scan_destination_topic", scan_destination_topic);
-    nh.getParam("laserscan_topics", laserscan_topics);
+	nh.getParam("laserscan_topics", laserscan_topics);
 
-    this->laserscan_topic_parser();
+	this->laserscan_topic_parser();
 
 	point_cloud_publisher_ = node_.advertise<sensor_msgs::PointCloud2> (cloud_destination_topic.c_str(), 1, false);
 	laser_scan_publisher_ = node_.advertise<sensor_msgs::LaserScan> (scan_destination_topic.c_str(), 1, false);
@@ -111,14 +111,16 @@ void LaserscanMerger::scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan,
 	sensor_msgs::PointCloud tmpCloud1,tmpCloud2;
 	sensor_msgs::PointCloud2 tmpCloud3;
 
-    // Verify that TF knows how to transform from the received scan to the destination scan frame
+	// Verify that TF knows how to transform from the received scan to the destination scan frame
 	tfListener_.waitForTransform(scan->header.frame_id.c_str(), destination_frame.c_str(), scan->header.stamp, ros::Duration(1));
 
 	projector_.transformLaserScanToPointCloud(scan->header.frame_id, *scan, tmpCloud1, tfListener_);
-	try
-	{
+	try {
 		tfListener_.transformPointCloud(destination_frame.c_str(), tmpCloud1, tmpCloud2);
-	}catch (tf::TransformException ex){ROS_ERROR("%s",ex.what());return;}
+	} catch (tf::TransformException ex) {
+		ROS_ERROR("%s",ex.what());
+		return;
+	}
 
 	for(int i=0; i<input_topics.size(); ++i)
 	{
@@ -130,28 +132,27 @@ void LaserscanMerger::scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan,
 		}
 	}	
 
-    // Count how many scans we have
+	// Count how many scans we have
 	int totalClouds = 0;
 	for(int i=0; i<clouds_modified.size(); ++i)
 		if(clouds_modified[i])
 			++totalClouds;
 
-    // Go ahead only if all subscribed scans have arrived
+	// Go ahead only if all subscribed scans have arrived
 	if(totalClouds == clouds_modified.size())
 	{
 		pcl::PCLPointCloud2 merged_cloud = clouds[0];
 		clouds_modified[0] = false;
 
-		for(int i=1; i<clouds_modified.size(); ++i)
+		for(int i=1; i < clouds_modified.size(); ++i)
 		{
 			pcl::concatenatePointCloud(merged_cloud, clouds[i], merged_cloud);
-			clouds_modified[i] = false;
 		}
 	
 		point_cloud_publisher_.publish(merged_cloud);
 
 		Eigen::MatrixXf points;
-		getPointCloudAsEigen(merged_cloud,points);
+		getPointCloudAsEigen(merged_cloud, points);
 
 		pointcloud_to_laserscan(points, &merged_cloud);
 	}
